@@ -1,0 +1,60 @@
+#!/usr/bin/env coconut-run
+
+
+"""
+- pattern-matching
+- no side-effects
+- nice lambdas
+- function pipelining
+- partial application
+"""
+
+
+import re
+import string
+import sys
+from operator import add, itemgetter
+
+from pyrsistent import pmap
+
+
+def read_file(path_to_file):
+    with open(path_to_file) as f:
+        text = f.read()
+    return text
+
+
+def stop_words():
+    with open('stop_words.txt') as f:
+        text = f.read()
+    single_letter_words = string.ascii_lowercase |> list
+    return text.split(',') + single_letter_words
+
+
+def frequencies(freqs, words):
+    case words:
+        match _ is list if not len(words):
+            return freqs
+        match _ is list if len(words):
+            return frequencies(
+                freqs.update_with(add, pmap({words[0]: 1})), words[1:]
+            )
+    else:
+        raise TypeError("Invalid argument: {}".format(words))
+
+
+def sort_top(item_count, freqs) = sorted(
+        freqs.iteritems(), key=itemgetter(1), reverse=True
+    )[:item_count]
+
+
+(
+    read_file(sys.argv[1])
+    |> .lower()
+    |> re.compile('[\W_]+').sub$(' ')
+    |> .split()
+    |> (s -> [w for w in s if w not in stop_words()])
+    |> frequencies$(pmap())
+    |> sort_top$(25)
+    |> (f -> [print(x[0], '-', x[1]) for x in f])
+)
